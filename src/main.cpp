@@ -4,24 +4,38 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2); 
 
 // put function declarations here:
-//int pinWaterSensor = A0; // arduino pin
-int pinWaterSensor = 7; // arduino pin
-int pinPumpRelai = 4; // arduino pin
+// arduino used pins
+int testPinHighLow = 8; // for testing
+int testPinOutLED = 13; // led
+int pinInWaterSensor = A0; 
+int pinOutPumpRelai = A1; 
 
-unsigned  int waterLevel = 0; // 0 = water hight, 1 = water low cause INPUT_PULLUP
-unsigned  long pumpRelaiTime = 1000; // time in ms
-unsigned  long pumpRelaiDelay = 10; // time in s
-unsigned  long oneSecond = 1000; 
+unsigned  int waterLevel = 0; // 0 = water hight, 1 = water low because INPUT_PULLUP activated
+unsigned  long timeWaterPumpOn  = 2000; // time ms
+unsigned  long timeWaterPumpOff = 5000; // time ms
+unsigned  long waitOneSecond    = 1000; // time ms
 
 void setup() // put your setup code here, to run once:
 {
+  pinMode(testPinHighLow, INPUT_PULLUP);
+  pinMode(testPinOutLED, OUTPUT); 
+  pinMode(pinInWaterSensor, INPUT_PULLUP);
+  pinMode(pinOutPumpRelai, OUTPUT);
+
   Serial.begin(9600);
   lcd.init();
   lcd.backlight();
+}
 
-  pinMode(pinWaterSensor, INPUT_PULLUP); 
-  //pinMode(pinWaterSensor, INPUT);
-  pinMode(pinPumpRelai, OUTPUT);
+void testHighLowPin(int pin) // intern INPUT_PULLUP resistor not work on pins 7 & 8 by my arduino
+{
+  for(int i=0; i<100; i++)
+  {    
+    int pinState = digitalRead(pin);
+    Serial.println("");Serial.print("Test high & low dtstr from pin: "); Serial.print(pin); Serial.print("=");Serial.println(pinState);  
+    if(pinState == 1) digitalWrite(13,HIGH); else digitalWrite(13,LOW);
+    delay(1000);
+  }
 }
 
 void viewDisplayAndLog(String messageOne, int valueOne, String messageTwo, int valueTwo)
@@ -38,37 +52,32 @@ void viewDisplayAndLog(String messageOne, int valueOne, String messageTwo, int v
   Serial.println("");
 }
 
-int checkWaterSensor()
-{
-  waterLevel = digitalRead(pinWaterSensor);
-  //waterLevel = analogRead(pinWaterSensor);
-}
+int getkWaterState() {return digitalRead(pinInWaterSensor);}
 
-void turnPumpOn()
+void activateWaterPumpAndCheckWaterLevel()
 { 
-  digitalWrite(pinPumpRelai, HIGH);
-  int counter = pumpRelaiTime/1000;// ms in seconds
-  while(counter >=0)
-  {
-    viewDisplayAndLog("Pump on: ", counter, "Water lvl: ", checkWaterSensor());
-    delay(oneSecond);
-    counter --;
-  }
-  digitalWrite(pinPumpRelai,LOW);
-}
+  int counterWaterPumpOn = (int)timeWaterPumpOn/1000;
+  int counterWaterPumpOff = (int)timeWaterPumpOff/1000;
 
-void checkWaterLevel()
-{
-  for(int i=0; i<pumpRelaiDelay; i++)
+  digitalWrite(pinOutPumpRelai, HIGH); digitalWrite(testPinOutLED, HIGH);
+  for(int i=counterWaterPumpOn; i>=0; i--) // turn pump off fur 15 seconds
   { 
-    viewDisplayAndLog("Pump wait: ", pumpRelaiDelay - i, "Water lvl: ", checkWaterSensor());
-    if(waterLevel == 0){break;}
-    delay(1000);
+    viewDisplayAndLog("Pump on for ", i, "Water lvl: ", getkWaterState());
+    delay(waitOneSecond);
+  }
+  digitalWrite(pinOutPumpRelai,LOW); digitalWrite(testPinOutLED, LOW);
+
+  for(int i=counterWaterPumpOff; i>=0; i--) // turn pump on for 3 seconds
+  {
+    if(getkWaterState() == 0) break; // if water lvl is max, turn pump on before timer expires
+
+    viewDisplayAndLog("Pump off for ", i, "Water lvl: ", getkWaterState());
+    delay(waitOneSecond);
   }
 }
 
 void loop() // put your main code here, to run repeatedly:
 {
-  turnPumpOn();
-  checkWaterLevel();
+  //testHighLowPin(testPinHighLow);
+  activateWaterPumpAndCheckWaterLevel();
 }
