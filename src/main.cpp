@@ -1,47 +1,68 @@
 #include <Arduino.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h> 
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
 
 // put function declarations here:
-int pinWaterSensor = A0;
-//int pinWaterSensor = 7;
-int pinPumpRelai = 4;
+//int pinWaterSensor = A0; // arduino pin
+int pinWaterSensor = 7; // arduino pin
+int pinPumpRelai = 4; // arduino pin
 
-unsigned  int waterLevel = 0;
-unsigned  long pumpRelaiTime = 1000;
-unsigned  long pumpRelaiDelay = 1500;
+unsigned  int waterLevel = 0; // 0 = water hight, 1 = water low cause INPUT_PULLUP
+unsigned  long pumpRelaiTime = 1000; // time in ms
+unsigned  long pumpRelaiDelay = 10; // time in s
+unsigned  long oneSecond = 1000; 
 
 void setup() // put your setup code here, to run once:
 {
   Serial.begin(9600);
+  lcd.init();
+  lcd.backlight();
 
-  pinMode(pinWaterSensor, INPUT);
+  pinMode(pinWaterSensor, INPUT_PULLUP); 
+  //pinMode(pinWaterSensor, INPUT);
   pinMode(pinPumpRelai, OUTPUT);
 }
 
-void turnPumpOn()
+void viewDisplayAndLog(String messageOne, int valueOne, String messageTwo, int valueTwo)
 {
+  lcd.clear();
+  lcd.setCursor(0, 0); 
+  lcd.print(messageOne); lcd.print(valueOne);
+  lcd.setCursor(0, 1);
+  lcd.print(messageTwo); lcd.print(valueTwo);
+
   Serial.println("");
-  Serial.println("Pump water for "); Serial.println(pumpRelaiTime); Serial.println(" seconds.");
+  Serial.print(messageOne); Serial.println(valueOne); 
+  Serial.print(messageTwo); Serial.println(valueTwo);
   Serial.println("");
-  digitalWrite(pinPumpRelai, HIGH); // activate pump 2 seconds
-  delay(pumpRelaiTime);
-  digitalWrite(pinPumpRelai,LOW); // deactivate pump 
+}
+
+int checkWaterSensor()
+{
+  waterLevel = digitalRead(pinWaterSensor);
+  //waterLevel = analogRead(pinWaterSensor);
+}
+
+void turnPumpOn()
+{ 
+  digitalWrite(pinPumpRelai, HIGH);
+  int counter = pumpRelaiTime/1000;// ms in seconds
+  while(counter >=0)
+  {
+    viewDisplayAndLog("Pump on: ", counter, "Water lvl: ", checkWaterSensor());
+    delay(oneSecond);
+    counter --;
+  }
+  digitalWrite(pinPumpRelai,LOW);
 }
 
 void checkWaterLevel()
 {
-  int counter = 10;
-  for(int i=0; i<counter; i++)
+  for(int i=0; i<pumpRelaiDelay; i++)
   { 
-    Serial.print(counter - i);
-    Serial.println(" s");
-    waterLevel = analogRead(pinWaterSensor);
-    //waterLevel = digitalRead(pinWaterSensor);
-    Serial.print("Water lvl: ");
-    Serial.println(waterLevel);
-
-    //if(waterLevel >800){break;}
-
-    Serial.println("#################");
+    viewDisplayAndLog("Pump wait: ", pumpRelaiDelay - i, "Water lvl: ", checkWaterSensor());
+    if(waterLevel == 0){break;}
     delay(1000);
   }
 }
